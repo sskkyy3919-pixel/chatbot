@@ -5,7 +5,7 @@ import os
 # إعدادات الصفحة لتكون الواجهة نظيفة ومريحة للعين
 st.set_page_config(page_title="دليلك الذكي في المول", page_icon="🏢", layout="centered")
 
-# تحسين مظهر الواجهة بإخفاء القوائم العشوائية وتنسيق الخطوط
+# تحسين مظهر الواجهة بإخفاء القوائم وتنسيق الخطوط والأزرار
 st.markdown("""
     <style>
     .stApp {
@@ -36,10 +36,9 @@ st.markdown("""
 def load_data():
     file_name = "chat_shops.xlsx"
     if not os.path.exists(file_name):
-        st.error(f"⚠️ لم نجد ملف البيانات باسم '{file_name}' في المستودع! يرجى التأكد من رفعه بنفس الاسم تماماً.")
+        st.error(f"⚠️ لم نجد ملف البيانات باسم '{file_name}' في المستودع!")
         return None
     try:
-        # قراءة الملف مع تحديد المحرك لضمان عدم حدوث أخطاء توافقية
         df = pd.read_excel(file_name, engine='openpyxl')
         # تنظيف الفراغات وأسماء الأعمدة
         df.columns = [col.strip().lower() for col in df.columns]
@@ -48,13 +47,13 @@ def load_data():
                 df[col] = df[col].astype(str).str.strip()
         return df
     except Exception as e:
-        st.error(f"⚠️ تعذر قراءة الملف بسبب نقص في بعض المكتبات. جاري معالجة الأمر تلقائياً...")
+        st.error("⚠️ تعذر قراءة الملف حالياً...")
         return None
 
 df = load_data()
 
 st.title("🤖 مساعدكِ الذكي لمحلات المول")
-st.write("<p style='text-align: center; color: #7f8c8d;'>أهلاً بكِ رُوز! اكتب اسم المحل أو استخدم الأزرار لتسهيل البحث.</p>", unsafe_allow_html=True)
+st.write("<p style='text-align: center; color: #7f8c8d;'>اكتب اسم المحل الذي تبحث عنه، أو استخدم الأزرار بالأسفل للتصفح السريع.</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # إعداد صندوق المحادثة
@@ -66,24 +65,26 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# منطق البحث والرد الذكي
+# دالة متطورة للبحث المرن والذكي (تتجاهل الفراغات بين الكلمات مثل سنتر بوينت)
 def get_bot_response(user_query, data):
     if data is None:
-        return "⚠️ عذراً، لا يمكنني الوصول لبيانات المحلات حالياً لأن ملف الإكسل يحتاج تثبيت مكتبة المساعدة."
+        return "⚠️ عذراً، لا يمكنني الوصول لبيانات المحلات حالياً."
     
-    query = user_query.strip().lower()
+    # تنظيف نص السؤال وتحويله لحروف صغيرة وإزالة الفراغات للمقارنة الذكية
+    clean_query = user_query.strip().replace(" ", "").lower()
     
     # البحث عن تطابق اسم المحل
     for _, row in data.iterrows():
-        shop_name = str(row['shop_name']).lower()
-        if shop_name in query or query in shop_name:
+        shop_name = str(row['shop_name']).strip()
+        clean_shop_name = shop_name.replace(" ", "").lower()
+        
+        # إذا كان الاسم النظيف للمحل موجوداً بالسؤال أو العكس
+        if clean_shop_name in clean_query or clean_query in clean_shop_name:
             location = row['location']
-            category = row['category']
-            target = row['target_audience']
-            return f"📌 **{row['shop_name']}** متواجد في **{location}**.\n\n*(التصنيف: {category} | الفئة: {target})*"
+            return f"📌 **{shop_name}** متواجد في **{location}**."
             
     return (
-        "🔍 بحثت لكِ ولم أعثر على هذا المحل في القائمة حالياً!\n\n"
+        "🔍 بحثت لك ولم أعثر على هذا المحل في القائمة حالياً!\n\n"
         "ولكن يمكنك استخدام **الأزرار التفاعلية بالأسفل** لتصفح الأقسام المتوفرة بكل سهولة 👇"
     )
 
@@ -119,7 +120,8 @@ if df is not None:
             if not fashion_shops.empty:
                 result = "👗 **محلات الملابس والعبايات المتوفرة:**\n"
                 for _, r in fashion_shops.drop_duplicates(subset=['shop_name']).iterrows():
-                    result += f"* **{r['shop_name']}** ({r['location']}) - لـ {r['target_audience']}\n"
+                    # إخفاء التفاصيل الزائدة وعرض اسم المحل والموقع فقط
+                    result += f"* **{r['shop_name']}** ({r['location']})\n"
                 st.session_state.messages.append({"role": "assistant", "content": result})
                 st.rerun()
 
