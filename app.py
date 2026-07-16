@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import os
-import re
 
 # إعدادات الصفحة
 st.set_page_config(page_title="المرشد الذكي", page_icon="🏢", layout="centered")
@@ -28,7 +27,7 @@ def load_data():
 df = load_data()
 st.title("🏢 المرشد الذكي")
 
-# دالة ذكية للبحث الجزئي في الإكسل
+# دالة البحث الذكي (نفس المنطق القوي اللي اعتمدناه)
 def get_bot_response(user_query, data):
     if data is None: return "⚠️ عذراً، لا يمكنني الوصول للبيانات."
     
@@ -39,17 +38,15 @@ def get_bot_response(user_query, data):
         if str(row['shop_name']).lower() in query or query in str(row['shop_name']).lower():
             return f"📌 **{row['shop_name']}** متواجد في **{row['location']}**."
 
-    # 2. البحث الذكي بالتصنيفات (المطابقة الجزئية)
+    # 2. البحث الذكي بالتصنيفات
     matched_shops = []
-    
-    # تعريف خرائط الكلمات المفتاحية (كلمة المستخدم -> تصنيف الإكسل)
     keywords = {
         "مطعم": "مطاعم", "اكل": "مطاعم", "غدا": "مطاعم", "عشا": "مطاعم",
         "مقهى": "مقاهي", "قهوة": "مقاهي", "كوفي": "مقاهي", "حلا": "حلويات",
         "لبس": "ملابس", "ازياء": "ملابس", "فستان": "ملابس",
         "عبايه": "عبايات", "عبايات": "عبايات",
         "العاب": "ترفيه والعاب", "ترفيه": "ترفيه والعاب", "سينما": "سينما",
-        "حضانة": "حضانة", "اطفال": "حضانة" # إذا بحث عن حضانة أو أطفال
+        "حضانة": "حضانة", "اطفال": "حضانة"
     }
     
     found_category = None
@@ -71,7 +68,6 @@ def get_bot_response(user_query, data):
 
 # إدارة الشات
 if "messages" not in st.session_state: st.session_state.messages = []
-if len(st.session_state.messages) > 6: st.session_state.messages = st.session_state.messages[2:]
 
 def handle_submit():
     if st.session_state.user_query_input:
@@ -83,9 +79,7 @@ def handle_submit():
 st.text_input("اكتب اسم المحل أو ما تبحث عنه هنا واضغط Enter...", key="user_query_input", on_change=handle_submit)
 st.markdown("---")
 
-for i in range(0, len(st.session_state.messages), 2):
-    if i+1 < len(st.session_state.messages):
-        user_msg = st.session_state.messages[i]
-        ass_msg = st.session_state.messages[i+1]
-        with st.chat_message(user_msg["role"]): st.markdown(user_msg["content"])
-        with st.chat_message(ass_msg["role"]): st.markdown(ass_msg["content"])
+# هنا التعديل: عرض الرسائل بترتيبها الطبيعي من القديم للجديد
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
