@@ -53,14 +53,19 @@ def load_data():
 df = load_data()
 
 st.title("🤖 مساعدكِ الذكي لمحلات المول")
-st.write("<p style='text-align: center; color: #7f8c8d;'>اكتب ما تبحث عنه (مثال: كوفيهات في الدور الأرضي، ملابس أطفال، كودو)...</p>", unsafe_allow_html=True)
+st.write("<p style='text-align: center; color: #7f8c8d;'>اكتب ما تبحث عنه (مثال: كوفيهات، ملابس أطفال، كودو)...</p>", unsafe_allow_html=True)
 st.markdown("---")
 
-# إعداد صندوق المحادثة الافتراضي
+# --- حل مشكلة تعليق الشات وتحديد الأسئلة ---
+# نقوم بإنشاء صندوق الذاكرة وإذا زادت المحادثات عن 10 (5 أسئلة و 5 أجوبة) نقوم بحذف الأقدم تلقائياً
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# عرض المحادثات السابقة
+# إذا تجاوزت المحادثة حد الأمان، نحذف أول رسالتين (السؤال والجواب الأقدم) لتفريغ الذاكرة فوراً ومتابعة الشات للأبد
+if len(st.session_state.messages) > 12:
+    st.session_state.messages = st.session_state.messages[2:]
+
+# عرض المحادثات النشطة
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
@@ -99,7 +104,6 @@ def get_bot_response(user_query, data):
     if data is None:
         return "⚠️ عذراً، لا يمكنني الوصول لبيانات المحلات حالياً."
     
-    # تنظيف نص السؤال بالكامل وتجهيز الكلمات للمقارنة
     user_words = clean_and_stem(user_query)
     query_flat = " ".join(user_words)
     
@@ -119,10 +123,30 @@ def get_bot_response(user_query, data):
         if clean_shop_name in query_clean_no_spaces or query_clean_no_spaces in clean_shop_name:
             return f"📌 **{shop_name}** متواجد في **{row['location']}**."
 
+    # تحديد نية البحث للتحقق من طلب المستخدم
+    is_food = any(w in final_search_words for w in ["مطاعم", "مطعم", "مَطاعم", "اكل", "أكل"])
+    is_cafe = any(w in final_search_words for w in ["مقاهي", "مقهى", "مَقاهي", "كافيه"])
+    is_clothing = any(w in final_search_words for w in ["ملابس", "عبايات"])
+
+    # --- ذكاء تحديد الأدوار للمطاعم والمقاهي الشاملة ---
+    # إذا سأل عن "المطاعم" أو "المقاهي" بشكل عام، نرجع له الدور المتواجدة فيه مباشرة
+    if (is_food or is_cafe) and not any(w in user_words for w in ["اين", "وين", "فين"]):
+        # استخراج الأدوار الفريدة التي تحتوي على مطاعم أو مقاهي من قاعدة البيانات
+        target_cats = []
+        if is_food: target_cats.extend(["مطاعم", "مطعم", "مَطاعم"])
+        if is_cafe: target_cats.extend(["مقاهي", "مقهى", "مَقاهي"])
+        
+        relevant_df = data[data['category'].isin(target_cats)]
+        if not relevant_df.empty:
+            floors = relevant_df['location'].unique()
+            floors_text = " و ".join([f"**{f}**" for f in floors])
+            type_text = "المطاعم" if is_food else "الكافيهات والمقاهي"
+            return f"🍴 {type_text} متواجدة بالكامل في {floors_text}."
+
     # 2. ثانياً: فحص إذا كان هناك تحديد للدور أو الموقع في سؤال المستخدم
     target_floor = None
     if "ارض" in query_flat or "أرض" in query_flat:
-        target_floor = "الارض" # سنطابق الجذور لاحقاً
+        target_floor = "الارض"
     elif "ثان" in query_flat:
         target_floor = "ثان"
     elif "اول" in query_flat or "أول" in query_flat:
@@ -148,13 +172,11 @@ def get_bot_response(user_query, data):
         shop_name = str(row['shop_name']).strip()
         loc = str(row['location']).strip()
         
-        # استخراج جذور التصنيف والجمهور والموقع للمطابقة الذكية
         cat_roots = clean_and_stem(cat)
         loc_roots = clean_and_stem(loc)
         
         match = False
         
-        # إذا حدد فئة مستهدفة في السؤال (مثال: أطفال)
         if target_word and target_word in target:
             has_cat_match = any(w in cat_roots for w in final_search_words if w != "اطفال")
             if has_cat_match:
@@ -162,26 +184,33 @@ def get_bot_response(user_query, data):
             elif len(final_search_words) <= 2:
                 match = True
                 
-        # إذا بحث بالمرادفات العامة (مثل: كوفيهات، مطاعم، ملابس)
         elif any(w in cat_roots for w in final_search_words):
             match = True
             
-        # إذا حصل تطابق للقسم، نتحقق من فلترة الدور لو كان مطلوباً
         if match:
             if target_floor:
-                # التحقق هل الموقع الفعلي للمحل يطابق الدور المطلوب بالسؤال
                 loc_flat = " ".join(loc_roots)
                 if target_floor in loc_flat:
                     matched_shops.append(f"* **{shop_name}** ({loc})")
             else:
-                # إذا لم يكن هناك تحديد للدور بالسؤال، نضيفه مباشرة
                 matched_shops.append(f"* **{shop_name}** ({loc})")
 
-    # إذا وجدنا نتائج تطابق البحث بالمنطق
     if matched_shops:
         unique_shops = list(set(matched_shops))
         floor_text = f" في الدور المطلوب" if target_floor else ""
-        return f"🛍️ **إليكِ المحلات التي تطابق طلبكِ{floor_text}:**\n\n" + "\n".join(unique_shops)
+        
+        if is_food:
+            header = f"🍴 **إليكِ المطاعم المتوفرة{floor_text}:**"
+        elif is_cafe:
+            header = f"☕ **إليكِ الكافيهات والمقاهي المتوفرة{floor_text}:**"
+        elif is_clothing:
+            header = f"👗 **إليكِ محلات الملابس والعبايات المتوفرة{floor_text}:**"
+        elif target_word == "أطفال":
+            header = f"👶 **إليكِ المحلات المتوفرة للأطفال{floor_text}:**"
+        else:
+            header = f"🛍️ **إليكِ المحلات التي تطابق طلبكِ{floor_text}:**"
+            
+        return f"{header}\n\n" + "\n".join(unique_shops)
             
     return (
         "🔍 بحثت لكِ ولم أعثر على ما يطابق طلبكِ حالياً بالفلترة المطلوبة!\n\n"
