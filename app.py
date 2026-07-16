@@ -205,13 +205,16 @@ def get_bot_response(user_query, data):
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-if len(st.session_state.messages) > 12:
+# تحديد الحجم الأقصى لعدد المحادثات (كل محادثة تتكون من رسالتين: سؤال وجواب)
+# لحفظ توازن الصفحة، سنبقي على آخر 3 محادثات كاملة كحد أقصى (6 رسائل)
+if len(st.session_state.messages) > 6:
     st.session_state.messages = st.session_state.messages[2:]
 
 # --- دالة ذكية لإرسال السؤال وتفريغ الصندوق فوراً عند الضغط على Enter ---
 def handle_submit():
     query = st.session_state.user_query_input
     if query:
+        # نحفظ السؤال أولاً ثم الجواب بالتتابع الصحيح داخل الذاكرة
         st.session_state.messages.append({"role": "user", "content": query})
         response = get_bot_response(query, df)
         st.session_state.messages.append({"role": "assistant", "content": response})
@@ -227,10 +230,24 @@ st.text_input(
 
 st.markdown("---")
 
-# عرض المحادثات بالأسفل (الأحدث بالأعلى مباشرة تحت مربع الكتابة)
-for message in reversed(st.session_state.messages):
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+# --- التعديل السحري لعرض السؤال فوق والجواب تحت بالترتيب الصحيح ---
+# نقسم الذاكرة إلى أزواج (كل سؤال وجواب معاً) ونعكس ترتيب الأزواج فقط لتكون الأحدث بالأعلى
+messages_list = st.session_state.messages
+chat_pairs = []
+
+# تجميع كل سؤال مع جوابه
+for i in range(0, len(messages_list), 2):
+    if i+1 < len(messages_list):
+        chat_pairs.append((messages_list[i], messages_list[i+1]))
+
+# عرض الأزواج بحيث تكون المحادثة الأحدث بالأعلى، وداخل المحادثة يظهر السؤال أولاً ثم الجواب
+for user_msg, assistant_msg in reversed(chat_pairs):
+    with st.chat_message(user_msg["role"]):
+        st.markdown(user_msg["content"])
+    with st.chat_message(assistant_msg["role"]):
+        st.markdown(assistant_msg["content"])
+
+st.markdown("---")
 
 # --- قسم الأزرار التفاعلية المنسقة بالأسفل (المنطق الأصلي) ---
 st.markdown("### 🧭 تصفح سريع ومساعد:")
@@ -244,6 +261,8 @@ if df is not None:
                 result = "🍴 **المطاعم والمقاهي المتوفرة:**\n"
                 for _, r in food_shops.drop_duplicates(subset=['shop_name']).iterrows():
                     result += f"* **{r['shop_name']}** ({r['location']})\n"
+                # نقوم بإضافة السؤال والجواب كزوج متناسق في الذاكرة لتجنب الخبطة
+                st.session_state.messages.append({"role": "user", "content": "🍔 استعراض المطاعم والمقاهي"})
                 st.session_state.messages.append({"role": "assistant", "content": result})
                 st.rerun()
 
@@ -254,6 +273,7 @@ if df is not None:
                 result = "👗 **محلات الملابس والعبايات المتوفرة:**\n"
                 for _, r in fashion_shops.drop_duplicates(subset=['shop_name']).iterrows():
                     result += f"* **{r['shop_name']}** ({r['location']})\n"
+                st.session_state.messages.append({"role": "user", "content": "🛍️ استعراض الملابس والعبايات"})
                 st.session_state.messages.append({"role": "assistant", "content": result})
                 st.rerun()
 
@@ -263,5 +283,6 @@ if df is not None:
             for floor in df['location'].unique():
                 floor_shops = df[df['location'] == floor]['shop_name'].unique()
                 result += f"* **{floor}:** {', '.join(floor_shops)}\n"
+            st.session_state.messages.append({"role": "user", "content": "🏢 استعراض حسب الأدوار"})
             st.session_state.messages.append({"role": "assistant", "content": result})
             st.rerun()
