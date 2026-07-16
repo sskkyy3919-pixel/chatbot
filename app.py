@@ -18,18 +18,6 @@ st.markdown("""
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         margin-bottom: 10px;
     }
-    .stButton>button {
-        background-color: #4A90E2;
-        color: white;
-        border-radius: 8px;
-        width: 100%;
-        border: none;
-        padding: 10px;
-    }
-    .stButton>button:hover {
-        background-color: #357ABD;
-        color: white;
-    }
     /* جعل صندوق الكتابة العلوي دائرياً وأنيقاً */
     .stTextInput>div>div>input {
         border-radius: 25px !important;
@@ -114,9 +102,11 @@ def get_bot_response(user_query, data):
         if clean_shop_name in query_clean_no_spaces or query_clean_no_spaces in clean_shop_name:
             return f"📌 **{shop_name}** متواجد في **{row['location']}**."
 
+    # تحديد نية البحث بدقة متناهية
     is_food = any(w in final_search_words for w in ["مطاعم", "مطعم", "مَطاعم", "اكل", "أكل"])
     is_cafe = any(w in final_search_words for w in ["مقاهي", "مقهى", "مَقاهي", "كافيه"])
-    is_clothing = any(w in final_search_words for w in ["ملابس", "عبايات"])
+    is_clothing = any(w in final_search_words for w in ["ملابس"])
+    is_abaya = any(w in final_search_words for w in ["عبايات", "عبايه"])
 
     if (is_food or is_cafe) and not any(w in user_words for w in ["اين", "وين", "فين"]):
         target_cats = []
@@ -188,7 +178,9 @@ def get_bot_response(user_query, data):
         elif is_cafe:
             header = f"☕ **إليكِ الكافيهات والمقاهي المتوفرة{floor_text}:**"
         elif is_clothing:
-            header = f"👗 **إليكِ محلات الملابس والعبايات المتوفرة{floor_text}:**"
+            header = f"👗 **إليكِ محلات الملابس المتوفرة{floor_text}:**"
+        elif is_abaya:
+            header = f"🖤 **إليكِ محلات العبايات المتوفرة{floor_text}:**"
         elif target_word == "أطفال":
             header = f"👶 **إليكِ المحلات المتوفرة للأطفال{floor_text}:**"
         else:
@@ -196,31 +188,25 @@ def get_bot_response(user_query, data):
             
         return f"{header}\n\n" + "\n".join(unique_shops)
             
-    return (
-        "🔍 بحثت لكِ ولم أعثر على ما يطابق طلبكِ حالياً بالفلترة المطلوبة!\n\n"
-        "ولكن يمكنك استخدام **الأزرار التفاعلية بالأسفل** لتصفح الأقسام المتوفرة بكل سهولة 👇"
-    )
+    return "🔍 بحثت لكِ ولم أعثر على ما يطابق طلبكِ حالياً بالفلترة المطلوبة!"
 
 # تهيئة الذاكرة وحل مشكلة الـ 7 أسئلة
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# تحديد الحجم الأقصى لعدد المحادثات (كل محادثة تتكون من رسالتين: سؤال وجواب)
-# لحفظ توازن الصفحة، سنبقي على آخر 3 محادثات كاملة كحد أقصى (6 رسائل)
 if len(st.session_state.messages) > 6:
     st.session_state.messages = st.session_state.messages[2:]
 
-# --- دالة ذكية لإرسال السؤال وتفريغ الصندوق فوراً عند الضغط على Enter ---
+# --- دالة الإرسال الذكية ---
 def handle_submit():
     query = st.session_state.user_query_input
     if query:
-        # نحفظ السؤال أولاً ثم الجواب بالتتابع الصحيح داخل الذاكرة
         st.session_state.messages.append({"role": "user", "content": query})
         response = get_bot_response(query, df)
         st.session_state.messages.append({"role": "assistant", "content": response})
-        st.session_state.user_query_input = "" # مسح الصندوق بعد الإرسال
+        st.session_state.user_query_input = "" 
 
-# --- وضع مربع الكتابة في الأعلى تماماً تحت العنوان ---
+# --- مربع الكتابة بالأعلى ---
 st.text_input(
     "اكتب اسم المحل أو ما تبحث عنه هنا واضغط Enter...", 
     key="user_query_input", 
@@ -230,59 +216,16 @@ st.text_input(
 
 st.markdown("---")
 
-# --- التعديل السحري لعرض السؤال فوق والجواب تحت بالترتيب الصحيح ---
-# نقسم الذاكرة إلى أزواج (كل سؤال وجواب معاً) ونعكس ترتيب الأزواج فقط لتكون الأحدث بالأعلى
+# عرض المحادثات بالترتيب الصحيح (سؤال فوق وجواب تحت والأحدث بالأعلى)
 messages_list = st.session_state.messages
 chat_pairs = []
 
-# تجميع كل سؤال مع جوابه
 for i in range(0, len(messages_list), 2):
     if i+1 < len(messages_list):
         chat_pairs.append((messages_list[i], messages_list[i+1]))
 
-# عرض الأزواج بحيث تكون المحادثة الأحدث بالأعلى، وداخل المحادثة يظهر السؤال أولاً ثم الجواب
 for user_msg, assistant_msg in reversed(chat_pairs):
     with st.chat_message(user_msg["role"]):
         st.markdown(user_msg["content"])
     with st.chat_message(assistant_msg["role"]):
         st.markdown(assistant_msg["content"])
-
-st.markdown("---")
-
-# --- قسم الأزرار التفاعلية المنسقة بالأسفل (المنطق الأصلي) ---
-st.markdown("### 🧭 تصفح سريع ومساعد:")
-col1, col2, col3 = st.columns(3)
-
-if df is not None:
-    with col1:
-        if st.button("🍔 المطاعم والمقاهي"):
-            food_shops = df[df['category'].isin(['مطاعم', 'مقاهي', 'مَطاعم', 'مَقاهي'])]
-            if not food_shops.empty:
-                result = "🍴 **المطاعم والمقاهي المتوفرة:**\n"
-                for _, r in food_shops.drop_duplicates(subset=['shop_name']).iterrows():
-                    result += f"* **{r['shop_name']}** ({r['location']})\n"
-                # نقوم بإضافة السؤال والجواب كزوج متناسق في الذاكرة لتجنب الخبطة
-                st.session_state.messages.append({"role": "user", "content": "🍔 استعراض المطاعم والمقاهي"})
-                st.session_state.messages.append({"role": "assistant", "content": result})
-                st.rerun()
-
-    with col2:
-        if st.button("🛍️ الملابس والعبايات"):
-            fashion_shops = df[df['category'].isin(['ملابس', 'عبايات'])]
-            if not fashion_shops.empty:
-                result = "👗 **محلات الملابس والعبايات المتوفرة:**\n"
-                for _, r in fashion_shops.drop_duplicates(subset=['shop_name']).iterrows():
-                    result += f"* **{r['shop_name']}** ({r['location']})\n"
-                st.session_state.messages.append({"role": "user", "content": "🛍️ استعراض الملابس والعبايات"})
-                st.session_state.messages.append({"role": "assistant", "content": result})
-                st.rerun()
-
-    with col3:
-        if st.button("🏢 استعراض حسب الأدوار"):
-            result = "🏢 **توزيع المحلات حسب الأدوار:**\n\n"
-            for floor in df['location'].unique():
-                floor_shops = df[df['location'] == floor]['shop_name'].unique()
-                result += f"* **{floor}:** {', '.join(floor_shops)}\n"
-            st.session_state.messages.append({"role": "user", "content": "🏢 استعراض حسب الأدوار"})
-            st.session_state.messages.append({"role": "assistant", "content": result})
-            st.rerun()
