@@ -27,10 +27,9 @@ def load_data():
 df = load_data()
 st.title("🏢 المرشد الذكي")
 
-# دالة البحث الذكي (نفس المنطق القوي اللي اعتمدناه)
+# دالة البحث الذكي
 def get_bot_response(user_query, data):
     if data is None: return "⚠️ عذراً، لا يمكنني الوصول للبيانات."
-    
     query = user_query.strip().lower()
     
     # 1. البحث عن محل محدد
@@ -39,7 +38,6 @@ def get_bot_response(user_query, data):
             return f"📌 **{row['shop_name']}** متواجد في **{row['location']}**."
 
     # 2. البحث الذكي بالتصنيفات
-    matched_shops = []
     keywords = {
         "مطعم": "مطاعم", "اكل": "مطاعم", "غدا": "مطاعم", "عشا": "مطاعم",
         "مقهى": "مقاهي", "قهوة": "مقاهي", "كوفي": "مقاهي", "حلا": "حلويات",
@@ -56,13 +54,13 @@ def get_bot_response(user_query, data):
             break
             
     if found_category:
+        matched_shops = []
         for _, row in data.iterrows():
             if found_category in str(row['category']).lower():
                 matched_shops.append(f"* **{row['shop_name']}** ({row['location']})")
-    
-    if matched_shops:
-        unique = list(set(matched_shops))
-        return f"✨ إليكِ ما وجدتِ:\n\n" + "\n".join(unique)
+        if matched_shops:
+            unique = list(set(matched_shops))
+            return f"✨ إليكِ ما وجدتِ:\n\n" + "\n".join(unique)
             
     return "🔍 بحثت لكِ ولم أعثر على ما يطابق طلبكِ!"
 
@@ -79,7 +77,15 @@ def handle_submit():
 st.text_input("اكتب اسم المحل أو ما تبحث عنه هنا واضغط Enter...", key="user_query_input", on_change=handle_submit)
 st.markdown("---")
 
-# هنا التعديل: عرض الرسائل بترتيبها الطبيعي من القديم للجديد
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+# التعديل هنا: استخدام reversed لعرض الأحدث في الأعلى دائماً
+messages_list = st.session_state.messages
+chat_pairs = []
+for i in range(0, len(messages_list), 2):
+    if i+1 < len(messages_list):
+        chat_pairs.append((messages_list[i], messages_list[i+1]))
+
+for user_msg, assistant_msg in reversed(chat_pairs):
+    with st.chat_message(user_msg["role"]):
+        st.markdown(user_msg["content"])
+    with st.chat_message(assistant_msg["role"]):
+        st.markdown(assistant_msg["content"])
