@@ -6,7 +6,7 @@ import re
 # إعدادات الصفحة لتكون الواجهة نظيفة ومريحة للعين
 st.set_page_config(page_title="المرشد الذكي", page_icon="🏢", layout="centered")
 
-# تحسين مظهر الواجهة
+# تحسين مظهر الواجهة وجعل صندوق الإدخال دائرياً وأنيقاً في الأعلى
 st.markdown("""
     <style>
     .stApp {
@@ -16,7 +16,7 @@ st.markdown("""
         color: #2c3e50;
         text-align: center;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        margin-bottom: 20px;
+        margin-bottom: 10px;
     }
     .stButton>button {
         background-color: #4A90E2;
@@ -30,9 +30,12 @@ st.markdown("""
         background-color: #357ABD;
         color: white;
     }
-    /* تنسيق خاص لجعل صندوق الإدخال يبدو مدمجاً بالأعلى بشكل أنيق */
-    .stChatInput {
-        margin-bottom: 20px;
+    /* جعل صندوق الكتابة العلوي دائرياً وأنيقاً */
+    .stTextInput>div>div>input {
+        border-radius: 25px !important;
+        padding: 12px 20px !important;
+        border: 1px solid #4A90E2 !important;
+        font-size: 16px !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -57,16 +60,8 @@ def load_data():
 
 df = load_data()
 
-# --- تعديل العنوان وحذف الجملة التوضيحية بناءً على طلبكِ ---
+# --- العنوان الفخم ---
 st.title("🏢 المرشد الذكي")
-st.markdown("---")
-
-# --- حل مشكلة تعليق الشات وتحديد الأسئلة (المنطق الأصلي) ---
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-if len(st.session_state.messages) > 12:
-    st.session_state.messages = st.session_state.messages[2:]
 
 # دالة تنظيف الكلمات وإعادتها لأصلها المبسط (المنطق الأصلي)
 def clean_and_stem(text):
@@ -206,26 +201,38 @@ def get_bot_response(user_query, data):
         "ولكن يمكنك استخدام **الأزرار التفاعلية بالأسفل** لتصفح الأقسام المتوفرة بكل سهولة 👇"
     )
 
-# --- جعل صندوق الكتابة في الأعلى بناءً على رغبتكِ ---
-user_input = st.chat_input("اكتب اسم المحل أو ما تبحث عنه هنا...")
+# تهيئة الذاكرة وحل مشكلة الـ 7 أسئلة
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-if user_input:
-    # إضافة سؤال المستخدم
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    # الحصول على رد البوت وإضافته مباشرة
-    response = get_bot_response(user_input, df)
-    st.session_state.messages.append({"role": "assistant", "content": response})
-    # إعادة تشغيل سريعة لتحديث الواجهة فوراً وظهور النصوص بالترتيب الجديد
-    st.rerun()
+if len(st.session_state.messages) > 12:
+    st.session_state.messages = st.session_state.messages[2:]
 
-# عرض المحادثات بالأسفل (تظهر الأحدث تحت صندوق الإدخال مباشرة)
+# --- دالة ذكية لإرسال السؤال وتفريغ الصندوق فوراً عند الضغط على Enter ---
+def handle_submit():
+    query = st.session_state.user_query_input
+    if query:
+        st.session_state.messages.append({"role": "user", "content": query})
+        response = get_bot_response(query, df)
+        st.session_state.messages.append({"role": "assistant", "content": response})
+        st.session_state.user_query_input = "" # مسح الصندوق بعد الإرسال
+
+# --- وضع مربع الكتابة في الأعلى تماماً تحت العنوان ---
+st.text_input(
+    "اكتب اسم المحل أو ما تبحث عنه هنا واضغط Enter...", 
+    key="user_query_input", 
+    on_change=handle_submit, 
+    placeholder="اكتب اسم المحل أو ما تبحث عنه هنا واضغط Enter..."
+)
+
+st.markdown("---")
+
+# عرض المحادثات بالأسفل (الأحدث بالأعلى مباشرة تحت مربع الكتابة)
 for message in reversed(st.session_state.messages):
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-st.markdown("---")
-
-# --- قسم الأزرار التفاعلية المنسقة (المنطق الأصلي) ---
+# --- قسم الأزرار التفاعلية المنسقة بالأسفل (المنطق الأصلي) ---
 st.markdown("### 🧭 تصفح سريع ومساعد:")
 col1, col2, col3 = st.columns(3)
 
