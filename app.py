@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import re
 
 # إعدادات الصفحة لتكون الواجهة نظيفة ومريحة للعين
 st.set_page_config(page_title="دليلك الذكي في المول", page_icon="🏢", layout="centered")
@@ -40,7 +41,7 @@ def load_data():
         return None
     try:
         df = pd.read_excel(file_name, engine='openpyxl')
-        # تنظيف الفراغات وأسماء الأعمدة
+        # تنظيف الفراغات وأسماء الأعمدة وتحويلها لحروف صغيرة لسهولة القراءة
         df.columns = [col.strip().lower() for col in df.columns]
         for col in df.columns:
             if df[col].dtype == 'object':
@@ -53,50 +54,88 @@ def load_data():
 df = load_data()
 
 st.title("🤖 مساعدكِ الذكي لمحلات المول")
-st.write("<p style='text-align: center; color: #7f8c8d;'>اكتب اسم المحل أو ما تبحث عنه (مثال: ملابس أطفال، مطعم، سنتربوينت)...</p>", unsafe_allow_html=True)
+st.write("<p style='text-align: center; color: #7f8c8d;'>اكتب ما تبحث عنه (مثال: كوفيهات، ملابس أطفال، كودو)...</p>", unsafe_allow_html=True)
 st.markdown("---")
 
-# إعداد صندوق المحادثة
+# إعداد صندوق المحادثة الافتراضي
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# عرض المحادثات
+# عرض المحادثات السابقة
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# دالة متطورة جداً للبحث المرن بناءً على الاسم، التصنيف، أو الفئة المستهدفة
+# دالة تنظيف الكلمات وإعادتها لأصلها المبسط (Stemming معالجة لغات مبسطة)
+def clean_and_stem(text):
+    text = text.strip().lower()
+    # إزالة علامات الترقيم والرموز
+    text = re.sub(r'[^\w\s]', '', text)
+    
+    words = text.split()
+    stemmed_words = []
+    
+    for word in words:
+        # 1. إزالة "ال" التعريف بالبداية
+        if word.startswith("ال") and len(word) > 3:
+            word = word[2:]
+        # 2. إزالة حروف الجر والعطف الملتصقة بالكلمة بالبداية (بـ، لـ، وـ)
+        if (word.startswith("ب") or word.startswith("ل") or word.startswith("و")) and len(word) > 3:
+            word = word[1:]
+        # 3. معالجة التاء المربوطة والهاء في النهاية لتوحيد المطابقة
+        if word.endswith("ة") or word.endswith("ه"):
+            word = word[:-1]
+        # 4. معالجة صيغ الجمع الشائعة (ات، ين، ون)
+        if word.endswith("ات") and len(word) > 4:
+            word = word[:-2]
+        elif (word.endswith("ين") or word.endswith("ون")) and len(word) > 4:
+            word = word[:-2]
+            
+        stemmed_words.append(word)
+        
+    return stemmed_words
+
+# معجم ذكي داخلي للتحويل التلقائي لبعض الكلمات الدارجة جداً لجذورها المطابقة للإكسل
+COMMON_SYNONYMS = {
+    "كوفي": "مقاهي", "كوفيه": "مقاهي", "قهوه": "مقاهي", "قهوة": "مقاهي", "كافيه": "مقاهي",
+    "اكل": "مطاعم", "أكل": "مطاعم", "جوع": "مطاعم", "غدا": "مطاعم", "عشا": "مطاعم",
+    "لبس": "ملابس", "ازياء": "ملابس", "أزياء": "ملابس", "فستان": "ملابس", "فساتين": "ملابس"
+}
+
+# دالة معالجة الرد الذكية بالكامل
 def get_bot_response(user_query, data):
     if data is None:
         return "⚠️ عذراً، لا يمكنني الوصول لبيانات المحلات حالياً."
     
-    # تنظيف نص السؤال بالكامل
-    query = user_query.strip().lower()
-    clean_query = query.replace(" ", "")
+    # تحويل سؤال المستخدم لجذور كلمات نظيفة
+    user_words = clean_and_stem(user_query)
     
-    # 1. أولاً: البحث عن اسم محل محدد داخل السؤال (تطابق ذكي)
+    # تبديل الكلمات الدارجة بأصلها المصنف في الإكسل (مثال: كوفيهات -> مقاهي)
+    final_search_words = []
+    for w in user_words:
+        if w in COMMON_SYNONYMS:
+            final_search_words.append(COMMON_SYNONYMS[w])
+        else:
+            final_search_words.append(w)
+            
+    # 1. البحث أولاً عن تطابق اسم محل محدد
+    query_clean_no_spaces = "".join(user_words)
     for _, row in data.iterrows():
         shop_name = str(row['shop_name']).strip()
-        clean_shop_name = shop_name.replace(" ", "").lower()
-        if clean_shop_name in clean_query or clean_query in clean_shop_name:
-            # إذا وجدنا المحل، نرجع موقعه فوراً بدون فلسفة تصنيفات
+        clean_shop_name = "".join(clean_and_stem(shop_name))
+        if clean_shop_name in query_clean_no_spaces or query_clean_no_spaces in clean_shop_name:
             return f"📌 **{shop_name}** متواجد في **{row['location']}**."
 
-    # 2. ثانياً: إذا لم يجد اسم محل، يبحث عن الكلمات المفتاحية (مثل: ملابس، أطفال، مطعم، مقهى)
+    # 2. البحث التلقائي المرن في أعمدة (التصنيف والفئة المستهدفة والاسم) بناءً على جذور الكلمات
     matched_shops = []
     
-    # كلمات مرادفة لتسهيل الفهم
-    is_food = any(word in query for word in ["مطعم", "مطاعم", "اكل", "أكل", "جوعان"])
-    is_cafe = any(word in query for word in ["مقهى", "مقاهي", "قهوة", "كافيه", "حلى"])
-    is_clothing = any(word in query for word in ["ملابس", "محل ملابس", "أزياء", "فساتين"])
-    
-    # تحديد الفئة المستهدفة من السؤال
+    # تحديد الفئة المستهدفة من جذور كلمات السؤال (أطفال، نساء، رجال)
     target_word = None
-    if "اطفال" in query or "أطفال" in query:
+    if any(w in user_words for w in ["اطفال", "طفل", "بيبي", "بناتي", "ولادي"]):
         target_word = "أطفال"
-    elif "نساء" in query or "نسائي" in query or "حريمي" in query:
+    elif any(w in user_words for w in ["نساء", "نسائي", "حريم", "بنات"]):
         target_word = "نساء"
-    elif "رجال" in query or "رجالي" in query:
+    elif any(w in user_words for w in ["رجال", "رجالي", "شباب"]):
         target_word = "رجال"
 
     for _, row in data.iterrows():
@@ -105,27 +144,31 @@ def get_bot_response(user_query, data):
         shop_name = str(row['shop_name']).strip()
         loc = str(row['location']).strip()
         
-        # تصفية ذكية بناءً على الفئة المستهدفة والتصنيف
+        # استخراج جذور التصنيف والجمهور في الإكسل للمطابقة
+        cat_roots = clean_and_stem(cat)
+        target_roots = clean_and_stem(target)
+        
         match = False
         
+        # إذا حدد فئة مستهدفة في السؤال (مثال: أطفال)
         if target_word and target_word in target:
-            if is_clothing and "ملابس" in cat:
+            # إذا حدد كلمة ثانية للتصنيف (مثل: ملابس أطفال)
+            has_cat_match = any(w in cat_roots for w in final_search_words if w != "اطفال")
+            if has_cat_match:
                 match = True
-            elif not is_clothing: # لو طلب بس "أطفال" بدون تحديد نوع المحل
+            # إذا كتب فقط "أطفال" أو "حق أطفال"
+            elif len(final_search_words) <= 2:
                 match = True
-        elif is_clothing and "ملابس" in cat:
-            match = True
-        elif is_food and cat in ["مطاعم", "مطعم", "مَطاعم"]:
-            match = True
-        elif is_cafe and cat in ["مقاهي", "مقهى", "مَقاهي"]:
+                
+        # إذا بحث بالمرادفات العامة (مثل: كوفيهات، مطاعم، ملابس)
+        elif any(w in cat_roots for w in final_search_words):
             match = True
             
         if match:
             matched_shops.append(f"* **{shop_name}** ({loc})")
 
-    # إذا وجدنا محلات تطابق البحث العام
+    # إذا وجدنا نتائج تطابق البحث بالمنطق
     if matched_shops:
-        # إزالة التكرار
         unique_shops = list(set(matched_shops))
         return f"🛍️ **إليكِ المحلات التي تطابق طلبكِ:**\n\n" + "\n".join(unique_shops)
             
