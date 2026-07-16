@@ -4,7 +4,7 @@ import os
 import re
 
 # إعدادات الصفحة لتكون الواجهة نظيفة ومريحة للعين
-st.set_page_config(page_title="دليلك الذكي في المول", page_icon="🏢", layout="centered")
+st.set_page_config(page_title="المرشد الذكي", page_icon="🏢", layout="centered")
 
 # تحسين مظهر الواجهة
 st.markdown("""
@@ -16,6 +16,7 @@ st.markdown("""
         color: #2c3e50;
         text-align: center;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        margin-bottom: 20px;
     }
     .stButton>button {
         background-color: #4A90E2;
@@ -29,10 +30,14 @@ st.markdown("""
         background-color: #357ABD;
         color: white;
     }
+    /* تنسيق خاص لجعل صندوق الإدخال يبدو مدمجاً بالأعلى بشكل أنيق */
+    .stChatInput {
+        margin-bottom: 20px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# دالة قراءة البيانات بمرونة عالية
+# دالة قراءة البيانات بمرونة عالية (المنطق الأصلي)
 @st.cache_data
 def load_data():
     file_name = "chat_shops.xlsx"
@@ -52,25 +57,18 @@ def load_data():
 
 df = load_data()
 
-st.title("🤖 مساعدكِ الذكي لمحلات المول")
-st.write("<p style='text-align: center; color: #7f8c8d;'>اكتب ما تبحث عنه (مثال: كوفيهات، ملابس أطفال، كودو)...</p>", unsafe_allow_html=True)
+# --- تعديل العنوان وحذف الجملة التوضيحية بناءً على طلبكِ ---
+st.title("🏢 المرشد الذكي")
 st.markdown("---")
 
-# --- حل مشكلة تعليق الشات وتحديد الأسئلة ---
-# نقوم بإنشاء صندوق الذاكرة وإذا زادت المحادثات عن 10 (5 أسئلة و 5 أجوبة) نقوم بحذف الأقدم تلقائياً
+# --- حل مشكلة تعليق الشات وتحديد الأسئلة (المنطق الأصلي) ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# إذا تجاوزت المحادثة حد الأمان، نحذف أول رسالتين (السؤال والجواب الأقدم) لتفريغ الذاكرة فوراً ومتابعة الشات للأبد
 if len(st.session_state.messages) > 12:
     st.session_state.messages = st.session_state.messages[2:]
 
-# عرض المحادثات النشطة
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-# دالة تنظيف الكلمات وإعادتها لأصلها المبسط
+# دالة تنظيف الكلمات وإعادتها لأصلها المبسط (المنطق الأصلي)
 def clean_and_stem(text):
     text = text.strip().lower()
     text = re.sub(r'[^\w\s]', '', text)
@@ -92,14 +90,14 @@ def clean_and_stem(text):
         
     return stemmed_words
 
-# معجم ذكي داخلي للتحويل التلقائي للكلمات الدارجة لجذورها المطابقة للإكسل
+# معجم الترادف الذكي (المنطق الأصلي)
 COMMON_SYNONYMS = {
     "كوفي": "مقاهي", "كوفيه": "مقاهي", "قهوه": "مقاهي", "قهوة": "مقاهي", "كافيه": "مقاهي",
     "اكل": "مطاعم", "أكل": "مطاعم", "جوع": "مطاعم", "غدا": "مطاعم", "عشا": "مطاعم",
     "لبس": "ملابس", "ازياء": "ملابس", "أزياء": "ملابس", "فستان": "ملابس", "فساتين": "ملابس"
 }
 
-# دالة معالجة الرد الذكية بالكامل
+# دالة معالجة الرد الذكية بالكامل (المنطق الأصلي دون تعديل)
 def get_bot_response(user_query, data):
     if data is None:
         return "⚠️ عذراً، لا يمكنني الوصول لبيانات المحلات حالياً."
@@ -107,7 +105,6 @@ def get_bot_response(user_query, data):
     user_words = clean_and_stem(user_query)
     query_flat = " ".join(user_words)
     
-    # تبديل الكلمات الدارجة بأصلها المصنف في الإكسل
     final_search_words = []
     for w in user_words:
         if w in COMMON_SYNONYMS:
@@ -115,7 +112,6 @@ def get_bot_response(user_query, data):
         else:
             final_search_words.append(w)
             
-    # 1. أولاً: البحث عن اسم محل محدد داخل السؤال (تطابق ذكي)
     query_clean_no_spaces = "".join(user_words)
     for _, row in data.iterrows():
         shop_name = str(row['shop_name']).strip()
@@ -123,15 +119,11 @@ def get_bot_response(user_query, data):
         if clean_shop_name in query_clean_no_spaces or query_clean_no_spaces in clean_shop_name:
             return f"📌 **{shop_name}** متواجد في **{row['location']}**."
 
-    # تحديد نية البحث للتحقق من طلب المستخدم
     is_food = any(w in final_search_words for w in ["مطاعم", "مطعم", "مَطاعم", "اكل", "أكل"])
     is_cafe = any(w in final_search_words for w in ["مقاهي", "مقهى", "مَقاهي", "كافيه"])
     is_clothing = any(w in final_search_words for w in ["ملابس", "عبايات"])
 
-    # --- ذكاء تحديد الأدوار للمطاعم والمقاهي الشاملة ---
-    # إذا سأل عن "المطاعم" أو "المقاهي" بشكل عام، نرجع له الدور المتواجدة فيه مباشرة
     if (is_food or is_cafe) and not any(w in user_words for w in ["اين", "وين", "فين"]):
-        # استخراج الأدوار الفريدة التي تحتوي على مطاعم أو مقاهي من قاعدة البيانات
         target_cats = []
         if is_food: target_cats.extend(["مطاعم", "مطعم", "مَطاعم"])
         if is_cafe: target_cats.extend(["مقاهي", "مقهى", "مَقاهي"])
@@ -143,7 +135,6 @@ def get_bot_response(user_query, data):
             type_text = "المطاعم" if is_food else "الكافيهات والمقاهي"
             return f"🍴 {type_text} متواجدة بالكامل في {floors_text}."
 
-    # 2. ثانياً: فحص إذا كان هناك تحديد للدور أو الموقع في سؤال المستخدم
     target_floor = None
     if "ارض" in query_flat or "أرض" in query_flat:
         target_floor = "الارض"
@@ -154,10 +145,8 @@ def get_bot_response(user_query, data):
     elif "بروم" in query_flat:
         target_floor = "بروم"
 
-    # 3. البحث التلقائي المرن في أعمدة (التصنيف والفئة المستهدفة والاسم)
     matched_shops = []
     
-    # تحديد الفئة المستهدفة من جذور كلمات السؤال (أطفال، نساء، رجال)
     target_word = None
     if any(w in user_words for w in ["اطفال", "طفل", "بيبي", "بناتي", "ولادي"]):
         target_word = "أطفال"
@@ -217,18 +206,26 @@ def get_bot_response(user_query, data):
         "ولكن يمكنك استخدام **الأزرار التفاعلية بالأسفل** لتصفح الأقسام المتوفرة بكل سهولة 👇"
     )
 
-# استقبال الرسائل
-if user_input := st.chat_input("اكتب اسم المحل هنا (مثال: سنتربوينت، كودو)..."):
+# --- جعل صندوق الكتابة في الأعلى بناءً على رغبتكِ ---
+user_input = st.chat_input("اكتب اسم المحل أو ما تبحث عنه هنا...")
+
+if user_input:
+    # إضافة سؤال المستخدم
     st.session_state.messages.append({"role": "user", "content": user_input})
-    with st.chat_message("user"):
-        st.markdown(user_input)
-        
+    # الحصول على رد البوت وإضافته مباشرة
     response = get_bot_response(user_input, df)
     st.session_state.messages.append({"role": "assistant", "content": response})
-    with st.chat_message("assistant"):
-        st.markdown(response)
+    # إعادة تشغيل سريعة لتحديث الواجهة فوراً وظهور النصوص بالترتيب الجديد
+    st.rerun()
 
-# --- قسم الأزرار التفاعلية المنسقة ---
+# عرض المحادثات بالأسفل (تظهر الأحدث تحت صندوق الإدخال مباشرة)
+for message in reversed(st.session_state.messages):
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+st.markdown("---")
+
+# --- قسم الأزرار التفاعلية المنسقة (المنطق الأصلي) ---
 st.markdown("### 🧭 تصفح سريع ومساعد:")
 col1, col2, col3 = st.columns(3)
 
