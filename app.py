@@ -18,36 +18,33 @@ st.title("🏢 المرشد الذكي")
 def get_bot_response(user_query, data):
     query = user_query.strip().lower()
     
-    # 1. بحث عن محل بالاسم (أولوية)
+    # 1. بحث مباشر عن اسم المحل (أولوية)
     for _, row in data.iterrows():
         if str(row['shop_name']).lower() in query:
             return f"📌 **{row['shop_name']}** في **{row['location']}**."
 
-    # 2. بحث بالتصنيف (Category) - هذا يحل مشكلة ملابس الأطفال
+    # 2. بحث ذكي: نفصل المنطق عشان ما يخلط
     matched_shops = []
-    
-    # تصنيفات واضحة
     for _, row in data.iterrows():
         cat = str(row['category']).lower()
         target = str(row['target_audience']).lower()
         
-        # إذا بحث عن ملابس أو ألعاب
-        if ("ملابس" in query and "ملابس" in cat) or ("العاب" in query and "ترفيه" in cat):
-            if "اطفال" in query: # فلترة إضافية للأطفال
-                if "اطفال" in target: matched_shops.append(f"* **{row['shop_name']}** ({row['location']})")
-            else:
-                matched_shops.append(f"* **{row['shop_name']}** ({row['location']})")
-        
-        # إذا بحث عن حضانة
+        # لو المستخدم يبي ملابس أطفال
+        if "ملابس" in query and "ملابس" in cat and "اطفال" in target:
+            matched_shops.append(f"* **{row['shop_name']}** ({row['location']})")
+        # لو المستخدم يبي ألعاب
+        elif ("العاب" in query or "ترفيه" in query) and "ترفيه" in cat:
+            matched_shops.append(f"* **{row['shop_name']}** ({row['location']})")
+        # لو المستخدم يبي حضانة
         elif "حضانة" in query and "حضانة" in cat:
             matched_shops.append(f"* **{row['shop_name']}** ({row['location']})")
-
+            
     if matched_shops:
         return f"✨ إليكِ ما وجدتِ:\n\n" + "\n".join(list(set(matched_shops)))
-            
     return "🔍 بحثت لكِ ولم أعثر على ما يطابق طلبكِ!"
 
 if "messages" not in st.session_state: st.session_state.messages = []
+
 def handle_submit():
     if st.session_state.user_query_input:
         query = st.session_state.user_query_input
@@ -56,6 +53,9 @@ def handle_submit():
         st.session_state.user_query_input = "" 
 
 st.text_input("ابحثي هنا...", key="user_query_input", on_change=handle_submit)
-for i in range(0, len(st.session_state.messages), 2):
-    with st.chat_message(st.session_state.messages[i]["role"]): st.markdown(st.session_state.messages[i]["content"])
-    with st.chat_message(st.session_state.messages[i+1]["role"]): st.markdown(st.session_state.messages[i+1]["content"])
+st.markdown("---")
+
+# عرض الأحدث في الأعلى
+for user_msg, assistant_msg in reversed([st.session_state.messages[i:i+2] for i in range(0, len(st.session_state.messages), 2)]):
+    with st.chat_message(user_msg["role"]): st.markdown(user_msg["content"])
+    with st.chat_message(assistant_msg["role"]): st.markdown(assistant_msg["content"])
