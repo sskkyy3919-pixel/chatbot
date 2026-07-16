@@ -5,7 +5,7 @@ import os
 # إعدادات الصفحة لتكون الواجهة نظيفة ومريحة للعين
 st.set_page_config(page_title="دليلك الذكي في المول", page_icon="🏢", layout="centered")
 
-# تحسين مظهر الواجهة بإخفاء القوائم وتنسيق الخطوط والأزرار
+# تحسين مظهر الواجهة
 st.markdown("""
     <style>
     .stApp {
@@ -31,7 +31,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# دالة ذكية لقراءة البيانات بمرونة عالية
+# دالة قراءة البيانات بمرونة عالية
 @st.cache_data
 def load_data():
     file_name = "chat_shops.xlsx"
@@ -53,7 +53,7 @@ def load_data():
 df = load_data()
 
 st.title("🤖 مساعدكِ الذكي لمحلات المول")
-st.write("<p style='text-align: center; color: #7f8c8d;'>اكتب اسم المحل الذي تبحث عنه، أو استخدم الأزرار بالأسفل للتصفح السريع.</p>", unsafe_allow_html=True)
+st.write("<p style='text-align: center; color: #7f8c8d;'>اكتب اسم المحل أو ما تبحث عنه (مثال: ملابس أطفال، مطعم، سنتربوينت)...</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # إعداد صندوق المحادثة
@@ -65,26 +65,72 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# دالة متطورة للبحث المرن والذكي (تتجاهل الفراغات بين الكلمات مثل سنتر بوينت)
+# دالة متطورة جداً للبحث المرن بناءً على الاسم، التصنيف، أو الفئة المستهدفة
 def get_bot_response(user_query, data):
     if data is None:
         return "⚠️ عذراً، لا يمكنني الوصول لبيانات المحلات حالياً."
     
-    # تنظيف نص السؤال وتحويله لحروف صغيرة وإزالة الفراغات للمقارنة الذكية
-    clean_query = user_query.strip().replace(" ", "").lower()
+    # تنظيف نص السؤال بالكامل
+    query = user_query.strip().lower()
+    clean_query = query.replace(" ", "")
     
-    # البحث عن تطابق اسم المحل
+    # 1. أولاً: البحث عن اسم محل محدد داخل السؤال (تطابق ذكي)
     for _, row in data.iterrows():
         shop_name = str(row['shop_name']).strip()
         clean_shop_name = shop_name.replace(" ", "").lower()
-        
-        # إذا كان الاسم النظيف للمحل موجوداً بالسؤال أو العكس
         if clean_shop_name in clean_query or clean_query in clean_shop_name:
-            location = row['location']
-            return f"📌 **{shop_name}** متواجد في **{location}**."
+            # إذا وجدنا المحل، نرجع موقعه فوراً بدون فلسفة تصنيفات
+            return f"📌 **{shop_name}** متواجد في **{row['location']}**."
+
+    # 2. ثانياً: إذا لم يجد اسم محل، يبحث عن الكلمات المفتاحية (مثل: ملابس، أطفال، مطعم، مقهى)
+    matched_shops = []
+    
+    # كلمات مرادفة لتسهيل الفهم
+    is_food = any(word in query for word in ["مطعم", "مطاعم", "اكل", "أكل", "جوعان"])
+    is_cafe = any(word in query for word in ["مقهى", "مقاهي", "قهوة", "كافيه", "حلى"])
+    is_clothing = any(word in query for word in ["ملابس", "محل ملابس", "أزياء", "فساتين"])
+    
+    # تحديد الفئة المستهدفة من السؤال
+    target_word = None
+    if "اطفال" in query or "أطفال" in query:
+        target_word = "أطفال"
+    elif "نساء" in query or "نسائي" in query or "حريمي" in query:
+        target_word = "نساء"
+    elif "رجال" in query or "رجالي" in query:
+        target_word = "رجال"
+
+    for _, row in data.iterrows():
+        cat = str(row['category']).strip()
+        target = str(row['target_audience']).strip()
+        shop_name = str(row['shop_name']).strip()
+        loc = str(row['location']).strip()
+        
+        # تصفية ذكية بناءً على الفئة المستهدفة والتصنيف
+        match = False
+        
+        if target_word and target_word in target:
+            if is_clothing and "ملابس" in cat:
+                match = True
+            elif not is_clothing: # لو طلب بس "أطفال" بدون تحديد نوع المحل
+                match = True
+        elif is_clothing and "ملابس" in cat:
+            match = True
+        elif is_food and cat in ["مطاعم", "مطعم", "مَطاعم"]:
+            match = True
+        elif is_cafe and cat in ["مقاهي", "مقهى", "مَقاهي"]:
+            match = True
+            
+        if match:
+            matched_shops.append(f"* **{shop_name}** ({loc})")
+
+    # إذا وجدنا محلات تطابق البحث العام
+    if matched_shops:
+        # إزالة التكرار
+        unique_shops = list(set(matched_shops))
+        return f"🛍️ **إليكِ المحلات التي تطابق طلبكِ:**\n\n" + "\n".join(unique_shops)
             
     return (
-        "🔍 بحثت لك ولم أعثر على هذا المحل في القائمة حالياً!\n\n"
+        "🔍 بحثت لكِ ولم أعثر على ما يطابق طلبكِ حالياً!\n\n"
         "ولكن يمكنك استخدام **الأزرار التفاعلية بالأسفل** لتصفح الأقسام المتوفرة بكل سهولة 👇"
     )
 
@@ -120,7 +166,6 @@ if df is not None:
             if not fashion_shops.empty:
                 result = "👗 **محلات الملابس والعبايات المتوفرة:**\n"
                 for _, r in fashion_shops.drop_duplicates(subset=['shop_name']).iterrows():
-                    # إخفاء التفاصيل الزائدة وعرض اسم المحل والموقع فقط
                     result += f"* **{r['shop_name']}** ({r['location']})\n"
                 st.session_state.messages.append({"role": "assistant", "content": result})
                 st.rerun()
