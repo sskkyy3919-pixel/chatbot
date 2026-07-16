@@ -2,10 +2,8 @@ import streamlit as st
 import pandas as pd
 import os
 
-# إعدادات الصفحة
 st.set_page_config(page_title="المرشد الذكي", page_icon="🏢", layout="centered")
 
-# التنسيق (المنطق الأصلي)
 st.markdown("""
     <style>
     .stApp { background-color: #f9fbfd; }
@@ -27,44 +25,42 @@ def load_data():
 df = load_data()
 st.title("🏢 المرشد الذكي")
 
-# دالة البحث الذكي
 def get_bot_response(user_query, data):
     if data is None: return "⚠️ عذراً، لا يمكنني الوصول للبيانات."
     query = user_query.strip().lower()
     
-    # 1. البحث عن محل محدد
+    # 1. بحث مباشر عن اسم المحل
     for _, row in data.iterrows():
         if str(row['shop_name']).lower() in query or query in str(row['shop_name']).lower():
             return f"📌 **{row['shop_name']}** متواجد في **{row['location']}**."
 
-    # 2. البحث الذكي بالتصنيفات
+    # 2. بحث ذكي بالتصنيفات
     keywords = {
-        "مطعم": "مطاعم", "اكل": "مطاعم", "غدا": "مطاعم", "عشا": "مطاعم",
-        "مقهى": "مقاهي", "قهوة": "مقاهي", "كوفي": "مقاهي", "حلا": "حلويات",
-        "لبس": "ملابس", "ازياء": "ملابس", "فستان": "ملابس",
-        "عبايه": "عبايات", "عبايات": "عبايات",
-        "العاب": "ترفيه والعاب", "ترفيه": "ترفيه والعاب", "سينما": "سينما",
-        "حضانة": "حضانة", "اطفال": "حضانة"
+        "مطعم": "مطاعم", "اكل": "مطاعم", "مقهى": "مقاهي", "حلا": "حلويات",
+        "ملابس": "ملابس", "عبايات": "عبايات", "سينما": "سينما", "حضانة": "حضانة"
     }
     
-    found_category = None
-    for key, val in keywords.items():
-        if key in query:
-            found_category = val
-            break
-            
-    if found_category:
-        matched_shops = []
+    # تحديد الفئة المستهدفة
+    found_category = next((val for key, val in keywords.items() if key in query), None)
+    
+    matched_shops = []
+    
+    # إذا كان البحث يخص الأطفال (ملابس أطفال أو حضانة)
+    if "اطفال" in query:
+        for _, row in data.iterrows():
+            if "اطفال" in str(row['target_audience']).lower() or "حضانة" in str(row['category']).lower():
+                matched_shops.append(f"* **{row['shop_name']}** ({row['location']})")
+    elif found_category:
         for _, row in data.iterrows():
             if found_category in str(row['category']).lower():
                 matched_shops.append(f"* **{row['shop_name']}** ({row['location']})")
-        if matched_shops:
-            unique = list(set(matched_shops))
-            return f"✨ إليكِ ما وجدتِ:\n\n" + "\n".join(unique)
+    
+    if matched_shops:
+        unique = list(set(matched_shops))
+        return f"✨ إليكِ ما وجدتِ:\n\n" + "\n".join(unique)
             
     return "🔍 بحثت لكِ ولم أعثر على ما يطابق طلبكِ!"
 
-# إدارة الشات
 if "messages" not in st.session_state: st.session_state.messages = []
 
 def handle_submit():
@@ -77,7 +73,6 @@ def handle_submit():
 st.text_input("اكتب اسم المحل أو ما تبحث عنه هنا واضغط Enter...", key="user_query_input", on_change=handle_submit)
 st.markdown("---")
 
-# التعديل هنا: استخدام reversed لعرض الأحدث في الأعلى دائماً
 messages_list = st.session_state.messages
 chat_pairs = []
 for i in range(0, len(messages_list), 2):
@@ -85,7 +80,5 @@ for i in range(0, len(messages_list), 2):
         chat_pairs.append((messages_list[i], messages_list[i+1]))
 
 for user_msg, assistant_msg in reversed(chat_pairs):
-    with st.chat_message(user_msg["role"]):
-        st.markdown(user_msg["content"])
-    with st.chat_message(assistant_msg["role"]):
-        st.markdown(assistant_msg["content"])
+    with st.chat_message(user_msg["role"]): st.markdown(user_msg["content"])
+    with st.chat_message(assistant_msg["role"]): st.markdown(assistant_msg["content"])
