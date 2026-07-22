@@ -20,19 +20,19 @@ df = load_data()
 st.title("🏢 دليل المول")
 
 if df is not None:
-    # خانة البحث اللي تتفاعل مع كل حرف يكتبه المستخدم
+    # خانة البحث الفوري
     search_query = st.text_input("🔍 ابحث عن اسم المحل:", placeholder="اكتب أول حروف من المحل مثل: هوم...")
     
     st.markdown("---")
     
     if search_query:
-        # تصفية الجدول بناءً على الحروف المكتوبة (تطابق جزئي)
         query_clean = search_query.strip().lower()
         result_df = df[df['shop_name'].str.contains(query_clean, na=False)]
         
         if not result_df.empty:
-            st.success(تم العثور على {len(result_df)} نتيجة:)
-            # عرض النتائج بشكل جدول مرتب ونظيف
+            # تم تصحيح السطر هنا بإضافة علامات التنصيص
+            st.success(f"تم العثور على {len(result_df)} نتيجة:")
+            
             for _, row in result_df.iterrows():
                 shop = str(row['shop_name']).title()
                 loc = str(row['location']).strip()
