@@ -4,28 +4,24 @@ import os
 
 st.set_page_config(page_title="دليل المول", page_icon="🏢", layout="centered")
 
-# --- تنسيق الواجهة وجعل كل شيء والقوائم المنسدلة على اليمين (RTL) ---
+# --- تنسيق الواجهة وجعل كل شيء على اليمين (RTL) ---
 st.markdown("""
     <style>
-    /* جعل اتجاه الصفحة بالكامل من اليمين لليسار */
     .stApp {
         background-color: #f9fbfd;
         direction: rtl;
         text-align: right;
     }
     
-    /* محاذاة العناوين والنصوص إلى اليمين */
     h1, h2, h3, p, label, .stMarkdown {
         text-align: right;
     }
     
-    /* محاذاة صندوق الاختيار الرئيسي إلى اليمين */
     .stSelectbox div[data-baseweb="select"] {
         text-align: right;
         direction: rtl;
     }
     
-    /* محاذاة القائمة المنسدلة والخيارات التي تظهر عند البحث إلى اليمين */
     div[data-baseweb="popover"], div[role="listbox"], ul[role="listbox"] {
         direction: rtl !important;
         text-align: right !important;
@@ -54,14 +50,21 @@ df = load_data()
 st.title("🏢 دليل المول")
 
 if df is not None:
+    # جلب أسماء المحلات بدون أي إضافات
     shop_list = df['shop_name'].dropna().str.title().unique().tolist()
-    shop_list.insert(0, "اختر أو ابحث عن المحل...")
     
-    selected_shop = st.selectbox("🔍 ابحث عن اسم المحل لمعرفة موقعه:", shop_list)
+    # استخدام st.selectbox مع تحديد index=None ليكون فارغاً ونظيفاً تماماً
+    selected_shop = st.selectbox(
+        "🔍 ابحث عن اسم المحل لمعرفة موقعه:", 
+        shop_list, 
+        index=None, 
+        placeholder="ابحث أو اكتب اسم المحل هنا..."
+    )
     
     st.markdown("---")
     
-    if selected_shop and selected_shop != "اختر أو ابحث عن المحل...":
+    # يظهر النتيجة فقط عند اختيار محل
+    if selected_shop:
         result = df[df['shop_name'].str.lower() == selected_shop.lower()]
         
         if not result.empty:
