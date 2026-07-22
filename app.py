@@ -91,5 +91,3 @@ if selected_shop:
             for shop in suggestions:
                 loc = df[df["shop_name"] == shop].iloc[0]["location"]
                 st.write(f"• **{shop.title()}** — {loc}")
-else:
-    st.error("⚠️ ملف البيانات غير موجود تأكد من رفع ملف 'chat_shops.xlsx'.")
