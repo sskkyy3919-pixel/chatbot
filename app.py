@@ -4,6 +4,28 @@ import os
 
 st.set_page_config(page_title="دليل المول", page_icon="🏢", layout="centered")
 
+# --- تنسيق الواجهة وجعل كل شيء على اليمين (RTL) ---
+st.markdown("""
+    <style>
+    /* جعل اتجاه الصفحة بالكامل من اليمين لليسار */
+    .stApp {
+        background-color: #f9fbfd;
+        direction: rtl;
+        text-align: right;
+    }
+    
+    /* محاذاة العناوين والنصوص إلى اليمين */
+    h1, h2, h3, p, label, .stMarkdown {
+        text-align: right;
+    }
+    
+    /* تنسيق خانة الاختيار لتكون متناسقة */
+    .stSelectbox div[data-baseweb="select"] {
+        text-align: right;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 @st.cache_data
 def load_data():
     file_name = "chat_shops.xlsx"
@@ -20,19 +42,16 @@ df = load_data()
 st.title("🏢 دليل المول")
 
 if df is not None:
-    # استخراج قائمة بجميع أسماء المحلات لتشغيل البحث التفاعلي
+    # استخراج قائمة بجميع أسماء المحلات للبحث التفاعلي
     shop_list = df['shop_name'].dropna().str.title().unique().tolist()
-    
-    # إضافة خيار فارغ في البداية
     shop_list.insert(0, "اختر أو ابحث عن المحل...")
     
-    # قائمة منسدلة تفاعلية تكتبين فيها ويصفي لك النتائج فوراً (شبيهة بيوتيوب وجوجل)
+    # قائمة البحث التفاعلية
     selected_shop = st.selectbox("🔍 ابحث عن اسم المحل لمعرفة موقعه:", shop_list)
     
     st.markdown("---")
     
     if selected_shop and selected_shop != "اختر أو ابحث عن المحل...":
-        # البحث عن المحل المحدد في الإكسل
         result = df[df['shop_name'].str.lower() == selected_shop.lower()]
         
         if not result.empty:
