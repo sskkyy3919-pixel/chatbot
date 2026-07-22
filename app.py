@@ -69,4 +69,4 @@ if selected_shop:
 
     if not result.empty:
         loc = result.iloc[0]["location"]
-        st.success(f"📌 {selected_shop.title()} يقع في {loc}")
+        st.success(f" {selected_shop.title()} يقع في {loc}")
