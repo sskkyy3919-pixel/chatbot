@@ -51,9 +51,9 @@ st.title("🏢 دليل المول")
 
 if df is not None:
     # قائمة المحلات
-shop_list = sorted(df["shop_name"].dropna().str.title().unique().tolist())
+    shop_list = sorted(df["shop_name"].dropna().str.title().unique().tolist())
 
-selected_shop = st.selectbox(
+    selected_shop = st.selectbox(
     "🔍 ابحث عن اسم المحل لمعرفة موقعه:",
     shop_list,
     index=None,
