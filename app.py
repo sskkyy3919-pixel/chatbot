@@ -47,6 +47,8 @@ def load_data():
     return df
 
 df = load_data()
+if df is None:
+    st.stop()
 st.title("🏢 دليل المول")
 
 if df is not None:
@@ -91,5 +93,3 @@ if selected_shop:
             for shop in suggestions:
                 loc = df[df["shop_name"] == shop].iloc[0]["location"]
                 st.write(f"• **{shop.title()}** — {loc}")
-else:
-    st.error("⚠️ ملف البيانات غير موجود تأكد من رفع ملف 'chat_shops.xlsx'.")
