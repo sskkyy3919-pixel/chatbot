@@ -62,7 +62,7 @@ if df is not None:
     if shop_input:
 
     # إذا كتب الاسم بالكامل
-    result = df[df["shop_name"].str.lower() == shop_input.lower()]
+        result = df[df["shop_name"].str.lower() == shop_input.lower()]
 
     if not result.empty:
         loc = result.iloc[0]["location"]
