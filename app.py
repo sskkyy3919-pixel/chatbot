@@ -52,76 +52,44 @@ if df is None:
 st.title("🏢 دليل المول")
 
 if df is not None:
-    # قائمة المحلات
-    shop_list = sorted(df["shop_name"].dropna().str.title().unique().tolist())
 
     shop_input = st.text_input(
-    "🔍 ابحث عن اسم المحل لمعرفة موقعه:",
-    placeholder="اكتب اسم المحل ثم اضغط Enter..."
-)
+        "🔍 ابحث عن اسم المحل لمعرفة موقعه:",
+        placeholder="اكتب اسم المحل ثم اضغط Enter..."
+    )
+
     if shop_input:
 
-    # إذا كتب الاسم بالكامل
+        # البحث عن تطابق كامل
         result = df[df["shop_name"].str.lower() == shop_input.lower()]
 
-    if not result.empty:
-        loc = result.iloc[0]["location"]
-        st.success(f"📌 **{shop_input.title()}** يقع في **{loc}**")
-
-    else:
-        import difflib
-
-        suggestions = difflib.get_close_matches(
-            shop_input.lower(),
-            df["shop_name"].tolist(),
-            n=3,
-            cutoff=0.65
-        )
-
-        if suggestions:
-            st.warning("⚠️ لم يتم العثور على الاسم بالضبط، هل تقصد؟")
-
-            selected = st.selectbox(
-                "اختر المحل:",
-                suggestions,
-                index=None,
-                placeholder="اختر أحد الاقتراحات..."
-            )
-
-            if selected:
-                loc = df[df["shop_name"] == selected].iloc[0]["location"]
-                st.success(f"📌 **{selected.title()}** يقع في **{loc}**")
+        if not result.empty:
+            loc = result.iloc[0]["location"]
+            st.success(f"📌 **{shop_input.title()}** يقع في **{loc}**")
 
         else:
-            st.error("❌ لم يتم العثور على هذا المحل.")
+            import difflib
 
-st.markdown("---")
+            suggestions = difflib.get_close_matches(
+                shop_input.lower(),
+                df["shop_name"].tolist(),
+                n=3,
+                cutoff=0.65
+            )
 
-if selected_shop:
+            if suggestions:
+                st.warning("⚠️ لم يتم العثور على الاسم بالضبط، هل تقصد؟")
 
-    # البحث عن تطابق كامل
-    result = df[df["shop_name"].str.lower() == selected_shop.lower()]
+                selected = st.selectbox(
+                    "اختر المحل:",
+                    suggestions,
+                    index=None,
+                    placeholder="اختر أحد الاقتراحات..."
+                )
 
-    if not result.empty:
-        loc = result.iloc[0]["location"]
-        st.success(f"📌 **{selected_shop.title()}** يقع في **{loc}**")
+                if selected:
+                    loc = df[df["shop_name"] == selected].iloc[0]["location"]
+                    st.success(f"📌 **{selected.title()}** يقع في **{loc}**")
 
-    else:
-        # البحث عن اقتراحات مشابهة
-        import difflib
-
-        suggestions = difflib.get_close_matches(
-            selected_shop.lower(),
-            df["shop_name"].tolist(),
-            n=3,
-            cutoff=0.6
-        )
-
-        st.error("❌ لم يتم العثور على هذا المحل.")
-
-        if suggestions:
-            st.info("💡 هل تقصد أحد هذه المحلات؟")
-
-            for shop in suggestions:
-                loc = df[df["shop_name"] == shop].iloc[0]["location"]
-                st.write(f"• **{shop.title()}** — {loc}")
+            else:
+                st.error("❌ لم يتم العثور على هذا المحل.")
