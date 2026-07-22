@@ -69,7 +69,7 @@ if df is not None:
         
         if not result.empty:
             loc = result.iloc[0]['location'].strip()
-            st.success(f"📌 **{selected_shop}** يقع في: **{loc}**")
+            st.success(f"📌 {selected_shop} يقع في: **{loc}**")
         else:
             st.warning("🔍 لم يتم العثور على موقع هذا المحل.")
 else:
