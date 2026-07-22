@@ -242,37 +242,43 @@ def extract_intent(query):
 def get_bot_response(user_query, data):
 
     if data is None:
-        return "⚠️ لا أستطيع قراءة ملف المحلات."
+        return "⚠️ لا أستطيع قراءة ملف البيانات."
 
-    intent = extract_intent(user_query)
+    query = user_query.strip().lower()
 
-    query = user_query.lower()
-
-    # -------------------------
-    # البحث باسم المحل
-    # -------------------------
+    # ==========================
+    # أولاً: البحث باسم المحل
+    # ==========================
 
     for _, row in data.iterrows():
 
-        shop = str(row["shop_name"]).strip()
+        shop = str(row["shop_name"]).strip().lower()
 
-        if shop.lower() in query or query in shop.lower():
+        if shop in query or query in shop:
 
-            return f"📍 **{shop}** يقع في **{row['location']}**."
+            return f"📍 **{row['shop_name']}**\n\nيقع في **{row['location']}**."
+
+    # ==========================
+    # ثانياً: استخراج نية المستخدم
+    # ==========================
+
+    intent = extract_intent(query)
 
     result = data.copy()
 
-    # -------------------------
-    # التصنيف
-    # -------------------------
+    # ==========================
+    # فلترة التصنيف
+    # ==========================
 
     if intent["category"]:
 
-        result = result[result["category"] == intent["category"]]
+        result = result[
+            result["category"].str.strip() == intent["category"]
+        ]
 
-    # -------------------------
-    # الفئة
-    # -------------------------
+    # ==========================
+    # فلترة الفئة المستهدفة
+    # ==========================
 
     if intent["target"]:
 
@@ -282,36 +288,36 @@ def get_bot_response(user_query, data):
             )
         ]
 
-    # -------------------------
-    # الدور
-    # -------------------------
+    # ==========================
+    # فلترة الدور
+    # ==========================
 
     if intent["floor"]:
 
         result = result[
-            result["location"] == intent["floor"]
+            result["location"].str.strip() == intent["floor"]
         ]
 
-    if result.empty:
+    # ==========================
+    # لا توجد نتائج
+    # ==========================
 
+    if result.empty:
         return "🔍 لم أجد نتائج مطابقة."
 
-    # ترتيب بدون تكرار
+    # ==========================
+    # ترتيب النتائج
+    # ==========================
 
-    result = result.drop_duplicates(
-        subset=["shop_name", "location"]
-    )
+    shops = result.drop_duplicates(subset=["shop_name"])
 
-    text = []
+    response = "🛍️ **وجدت هذه المحلات:**\n\n"
 
-    for _, row in result.iterrows():
+    for _, row in shops.iterrows():
 
-        text.append(
-            f"• **{row['shop_name']}**\n"
-            f"📍 {row['location']}"
-        )
+        response += f"• **{row['shop_name']}** 📍 {row['location']}\n"
 
-    return "\n\n".join(text)
+    return response
 
 # تهيئة الذاكرة وحل مشكلة الـ 7 أسئلة
 if "messages" not in st.session_state:
