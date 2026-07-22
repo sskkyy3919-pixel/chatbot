@@ -1,95 +1,126 @@
 import streamlit as st
 import pandas as pd
 import os
+from difflib import get_close_matches
 
 st.set_page_config(page_title="دليل المول", page_icon="🏢", layout="centered")
 
-# --- تنسيق الواجهة وجعل كل شيء على اليمين (RTL) ---
+# ==========================
+# تنسيق الواجهة
+# ==========================
 st.markdown("""
-    <style>
-    .stApp {
-        background-color: #f9fbfd;
-        direction: rtl;
-        text-align: right;
-    }
-    
-    h1, h2, h3, p, label, .stMarkdown {
-        text-align: right;
-    }
-    
-    .stSelectbox div[data-baseweb="select"] {
-        text-align: right;
-        direction: rtl;
-    }
-    
-    div[data-baseweb="popover"], div[role="listbox"], ul[role="listbox"] {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    div[role="option"] {
-        text-align: right !important;
-        direction: rtl !important;
-    }
-    </style>
+<style>
+
+.stApp{
+    direction:rtl;
+    text-align:right;
+    background:#f8fafc;
+}
+
+h1,p,label{
+    text-align:right;
+}
+
+.stTextInput input{
+    border-radius:12px;
+    text-align:right;
+}
+
+</style>
 """, unsafe_allow_html=True)
 
+
+# ==========================
+# قراءة ملف الاكسل
+# ==========================
 @st.cache_data
 def load_data():
+
     file_name = "chat_shops.xlsx"
-    if not os.path.exists(file_name):
+
+    if not os.path.isfile(file_name):
         return None
-    df = pd.read_excel(file_name, engine='openpyxl')
-    df.columns = [col.strip().lower() for col in df.columns]
-    for col in df.columns:
-        if df[col].dtype == 'object':
-            df[col] = df[col].astype(str).str.strip().str.lower()
+
+    df = pd.read_excel(file_name, engine="openpyxl")
+
+    df.columns = [c.strip().lower() for c in df.columns]
+
+    df["shop_name"] = df["shop_name"].astype(str).str.strip()
+    df["location"] = df["location"].astype(str).str.strip()
+
     return df
 
+
 df = load_data()
+
+
+# إذا الملف غير موجود يتوقف البرنامج
+if df is None:
+    st.error("⚠️ ملف البيانات غير موجود. تأكد من رفع chat_shops.xlsx")
+    st.stop()
+
+
+# ==========================
+# عنوان الصفحة
+# ==========================
 st.title("🏢 دليل المول")
 
-if df is not None:
-   # قائمة المحلات
-    shop_list = sorted(df["shop_name"].dropna().str.title().unique().tolist())
+st.write("🔎 ابحث عن اسم المحل لمعرفة موقعه.")
 
-    selected_shop = st.selectbox(
-    "🔍 ابحث عن اسم المحل لمعرفة موقعه:",
-    shop_list,
-    index=None,
-    placeholder="ابحث أو اكتب اسم المحل هنا...",
-    accept_new_options=True
+# ==========================
+# مربع البحث
+# ==========================
+query = st.text_input(
+    "",
+    placeholder="اكتب اسم المحل هنا..."
 )
 
 st.markdown("---")
 
-if selected_shop:
 
-    # البحث عن تطابق كامل
-    result = df[df["shop_name"].str.lower() == selected_shop.lower()]
+# ==========================
+# البحث
+# ==========================
+if query:
 
-    if not result.empty:
-        loc = result.iloc[0]["location"]
-        st.success(f"📌 **{selected_shop.title()}** يقع في **{loc}**")
+    query = query.strip()
+
+    shops = df["shop_name"].tolist()
+
+    # تطابق كامل
+    exact = df[
+        df["shop_name"].str.lower() == query.lower()
+    ]
+
+    if not exact.empty:
+
+        shop = exact.iloc[0]["shop_name"]
+        location = exact.iloc[0]["location"]
+
+        st.success(f"📍 {shop} يقع في: {location}")
 
     else:
-        # البحث عن اقتراحات مشابهة
-        import difflib
 
-        suggestions = difflib.get_close_matches(
-            selected_shop.lower(),
-            df["shop_name"].tolist(),
+        # اقتراحات قريبة فقط
+        suggestions = get_close_matches(
+            query,
+            shops,
             n=3,
-            cutoff=0.6
+            cutoff=0.65
         )
 
-        st.error("❌ لم يتم العثور على هذا المحل.")
-
         if suggestions:
-            st.info("💡 هل تقصد أحد هذه المحلات؟")
 
-            for shop in suggestions:
-                loc = df[df["shop_name"] == shop].iloc[0]["location"]
-                st.write(f"• **{shop.title()}** — {loc}")
-else:
-    st.error("⚠️ ملف البيانات غير موجود تأكد من رفع ملف 'chat_shops.xlsx'.")
+            st.warning("❌ لم يتم العثور على هذا المحل.")
+
+            st.write("هل تقصد أحد هذه المحلات؟")
+
+            for s in suggestions:
+
+                loc = df[df["shop_name"] == s].iloc[0]["location"]
+
+                st.write(f"• **{s}** — {loc}")
+
+        else:
+
+            st.error("❌ لم يتم العثور على هذا المحل.")
