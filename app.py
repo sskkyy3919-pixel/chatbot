@@ -106,119 +106,152 @@ COMMON_SYNONYMS = {
 
 # دالة معالجة الرد الذكية بالكامل (المنطق الأصلي دون تعديل)
 def get_bot_response(user_query, data):
+
     if data is None:
-        return "⚠️ عذراً، لا يمكنني الوصول لبيانات المحلات حالياً."
-    
-    user_words = clean_and_stem(user_query)
-    query_flat = " ".join(user_words)
-    
-    final_search_words = []
-    for w in user_words:
-        if w in COMMON_SYNONYMS:
-            final_search_words.append(COMMON_SYNONYMS[w])
-        else:
-            final_search_words.append(w)
-            
-    query_clean_no_spaces = "".join(user_words)
-    for _, row in data.iterrows():
-        shop_name = str(row['shop_name']).strip()
-        clean_shop_name = "".join(clean_and_stem(shop_name))
-        if clean_shop_name in query_clean_no_spaces or query_clean_no_spaces in clean_shop_name:
-            return f"📌 **{shop_name}** متواجد في **{row['location']}**."
+        return "⚠️ لا أستطيع قراءة ملف المحلات."
 
-    # تحديد نية البحث بدقة متناهية لتخصيص العناوين
-    is_food = any(w in final_search_words for w in ["مطاعم", "مطعم", "مَطاعم", "اكل", "أكل"])
-    is_cafe = any(w in final_search_words for w in ["مقاهي", "مقهى", "مَقاهي", "كافيه"])
-    is_clothing = any(w in final_search_words for w in ["ملابس"])
-    is_abaya = any(w in final_search_words for w in ["عبايات", "عبايه"])
-    is_furniture = any(w in final_search_words for w in ["منزل", "اثاث", "أثاث"])
-    is_nursery = any(w in final_search_words for w in ["حضانة", "حضانه"])
+    query = user_query.strip().lower()
 
-    if (is_food or is_cafe) and not any(w in user_words for w in ["اين", "وين", "فين"]):
-        target_cats = []
-        if is_food: target_cats.extend(["مطاعم", "مطعم", "مَطاعم"])
-        if is_cafe: target_cats.extend(["مقاهي", "mقهى", "مَقاهي"])
-        
-        relevant_df = data[data['category'].isin(target_cats)]
-        if not relevant_df.empty:
-            floors = relevant_df['location'].unique()
-            floors_text = " و ".join([f"**{f}**" for f in floors])
-            type_text = "المطاعم" if is_food else "الكافيهات والمقاهي"
-            return f"🍴 {type_text} متواجدة بالكامل في {floors_text}."
-
-    target_floor = None
-    if "ارض" in query_flat or "أرض" in query_flat:
-        target_floor = "الارض"
-    elif "ثان" in query_flat:
-        target_floor = "ثان"
-    elif "اول" in query_flat or "أول" in query_flat:
-        target_floor = "اول"
-    elif "بروم" in query_flat:
-        target_floor = "بروم"
-
-    matched_shops = []
-    
-    target_word = None
-    if any(w in user_words for w in ["اطفال", "طفل", "بيبي", "بناتي", "ولادي"]):
-        target_word = "أطفال"
-    elif any(w in user_words for w in ["نساء", "نسائي", "حريم", "بنات"]):
-        target_word = "نساء"
-    elif any(w in user_words for w in ["رجال", "رجالي", "شباب"]):
-        target_word = "رجال"
+    # --------------------
+    # 1- البحث باسم المحل
+    # --------------------
 
     for _, row in data.iterrows():
-        cat = str(row['category']).strip()
-        target = str(row['target_audience']).strip()
-        shop_name = str(row['shop_name']).strip()
-        loc = str(row['location']).strip()
-        
-        cat_roots = clean_and_stem(cat)
-        loc_roots = clean_and_stem(loc)
-        
-        match = False
-        
-        if target_word and target_word in target:
-            has_cat_match = any(w in cat_roots for w in final_search_words if w != "اطفال")
-            if has_cat_match:
-                match = True
-            elif len(final_search_words) <= 2:
-                match = True
-                
-        elif any(w in cat_roots for w in final_search_words):
-            match = True
-            
-        if match:
-            if target_floor:
-                loc_flat = " ".join(loc_roots)
-                if target_floor in loc_flat:
-                    matched_shops.append(f"* **{shop_name}** ({loc})")
-            else:
-                matched_shops.append(f"* **{shop_name}** ({loc})")
 
-    if matched_shops:
-        unique_shops = list(set(matched_shops))
-        floor_text = f" في الدور المطلوب" if target_floor else ""
-        
-        if is_food:
-            header = f"🍴 **إليكِ المطاعم المتوفرة{floor_text}:**"
-        elif is_cafe:
-            header = f"☕ **إليكِ الكافيهات والمقاهي المتوفرة{floor_text}:**"
-        elif is_clothing:
-            header = f"👗 **إليكِ محلات الملابس المتوفرة{floor_text}:**"
-        elif is_abaya:
-            header = f"🖤 **إليكِ محلات العبايات المتوفرة{floor_text}:**"
-        elif is_furniture:
-            header = f"🛋️ **إليكِ محلات مستلزمات المنزل والأثاث{floor_text}:**"
-        elif is_nursery:
-            header = f"👶 **إليكِ الحضانات ومراكز رعاية الأطفال المتوفرة{floor_text}:**"
-        elif target_word == "أطفال":
-            header = f"👶 **إليكِ المحلات المتوفرة للأطفال{floor_text}:**"
-        else:
-            header = f"🛍️ **إليكِ المحلات التي تطابق طلبكِ{floor_text}:**"
-            
-        return f"{header}\n\n" + "\n".join(unique_shops)
-            
-    return "🔍 بحثت لكِ ولم أعثر على ما يطابق طلبكِ حالياً بالفلترة المطلوبة!"
+        shop = str(row["shop_name"]).strip()
+
+        if shop.lower() in query or query in shop.lower():
+
+            return f"📍 **{shop}** يقع في **{row['location']}**."
+
+    # --------------------
+    # 2- كلمات البحث
+    # --------------------
+
+    category_keywords = {
+
+        "ملابس":["ملابس","لبس","فستان","فساتين"],
+
+        "عبايات":["عباية","عبايات"],
+
+        "لانجري وملابس داخلية":["لانجري","ملابس داخلية","بجامة"],
+
+        "عطور وتجميل":["عطر","عطور","مكياج","ميكب","تجميل"],
+
+        "اكسسوارات و مجوهرات":["اكسسوارات","اكسسوار","ذهب","فضة","مجوهرات"],
+
+        "حقائب و أحذية":["شنطة","شنط","حقيبة","احذية","حذاء","جزمة","شوز"],
+
+        "ساعات":["ساعة","ساعات"],
+
+        "مطاعم":["مطعم","مطاعم","اكل","غداء","عشاء"],
+
+        "مقاهي":["مقهى","كوفي","قهوة","كافيه"],
+
+        "حلويات وايسكريم":["حلويات","ايسكريم","آيس كريم","حلا"],
+
+        "منزل":["منزل","اثاث","ديكور"],
+
+        "رياضة":["رياضة","رياضي","نادي"],
+
+        "اتصالات":["جوال","جوالات","اتصالات","زين","سلام"],
+
+        "سينما":["سينما","فيلم","افلام"],
+
+        "ترفيه وألعاب":["العاب","ترفيه","ملاهي"],
+
+        "سوبرماركت":["سوبرماركت","بقالة","تموينات","مقاضي"],
+
+        "صيدليات":["صيدلية","دواء","صيدليات"],
+
+        "محمصة":["محمصة","مكسرات","بن"],
+
+        "حضانة":["حضانة","حضانه","اطفال"]
+    }
+
+    target_category = None
+
+    for cat, words in category_keywords.items():
+
+        for word in words:
+
+            if word in query:
+
+                target_category = cat
+                break
+
+        if target_category:
+            break
+
+    # --------------------
+    # 3- تحديد الفئة
+    # --------------------
+
+    target = None
+
+    if any(x in query for x in ["نساء","نسائي","بنات"]):
+
+        target = "نساء"
+
+    elif any(x in query for x in ["رجال","رجالي","شباب"]):
+
+        target = "رجال"
+
+    elif any(x in query for x in ["اطفال","طفل","بيبي"]):
+
+        target = "أطفال"
+
+    # --------------------
+    # 4- تحديد الدور
+    # --------------------
+
+    floor = None
+
+    if "الأرضي" in query or "ارضي" in query:
+
+        floor = "الدور الأرضي"
+
+    elif "الأول" in query:
+
+        floor = "الدور الأول"
+
+    elif "الثاني" in query:
+
+        floor = "الدور الثاني"
+
+    elif "البروم" in query:
+
+        floor = "البروم"
+
+    # --------------------
+    # 5- الفلترة
+    # --------------------
+
+    result = data.copy()
+
+    if target_category:
+
+        result = result[result["category"] == target_category]
+
+    if target:
+
+        result = result[result["target_audience"].isin([target,"الكل"])]
+
+    if floor:
+
+        result = result[result["location"] == floor]
+
+    if result.empty:
+
+        return "🔍 لم أجد نتائج مطابقة."
+
+    text = []
+
+    for _, row in result.iterrows():
+
+        text.append(f"• **{row['shop_name']}** ({row['location']})")
+
+    return "\n".join(text)
 
 # تهيئة الذاكرة وحل مشكلة الـ 7 أسئلة
 if "messages" not in st.session_state:
