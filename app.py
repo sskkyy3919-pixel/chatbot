@@ -57,7 +57,7 @@ if df is not None:
         "🔍 ابحث عن اسم المحل لمعرفة موقعه:",
         shop_list,
         index=None,
-        placeholder="ابحث أو اكتب اسم المحل هنا...",
+        placeholder="اكتب اسم المحل هنا...",
         accept_new_options=True
     )
 
