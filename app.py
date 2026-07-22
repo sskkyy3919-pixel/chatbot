@@ -55,13 +55,45 @@ if df is not None:
     # قائمة المحلات
     shop_list = sorted(df["shop_name"].dropna().str.title().unique().tolist())
 
-    selected_shop = st.selectbox(
+    shop_input = st.text_input(
     "🔍 ابحث عن اسم المحل لمعرفة موقعه:",
-    shop_list,
-    index=None,
-    placeholder="ابحث أو اكتب اسم المحل هنا...",
-    accept_new_options=True
+    placeholder="اكتب اسم المحل ثم اضغط Enter..."
 )
+    if shop_input:
+
+    # إذا كتب الاسم بالكامل
+    result = df[df["shop_name"].str.lower() == shop_input.lower()]
+
+    if not result.empty:
+        loc = result.iloc[0]["location"]
+        st.success(f"📌 **{shop_input.title()}** يقع في **{loc}**")
+
+    else:
+        import difflib
+
+        suggestions = difflib.get_close_matches(
+            shop_input.lower(),
+            df["shop_name"].tolist(),
+            n=3,
+            cutoff=0.65
+        )
+
+        if suggestions:
+            st.warning("⚠️ لم يتم العثور على الاسم بالضبط، هل تقصد؟")
+
+            selected = st.selectbox(
+                "اختر المحل:",
+                suggestions,
+                index=None,
+                placeholder="اختر أحد الاقتراحات..."
+            )
+
+            if selected:
+                loc = df[df["shop_name"] == selected].iloc[0]["location"]
+                st.success(f"📌 **{selected.title()}** يقع في **{loc}**")
+
+        else:
+            st.error("❌ لم يتم العثور على هذا المحل.")
 
 st.markdown("---")
 
