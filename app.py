@@ -4,21 +4,36 @@ import os
 
 st.set_page_config(page_title="دليل المول", page_icon="🏢", layout="centered")
 
-# --- تنسيق الواجهة وجعل كل شيء على اليمين (RTL) ---
+# --- تنسيق الواجهة وجعل كل شيء والقوائم المنسدلة على اليمين (RTL) ---
 st.markdown("""
     <style>
+    /* جعل اتجاه الصفحة بالكامل من اليمين لليسار */
     .stApp {
         background-color: #f9fbfd;
         direction: rtl;
         text-align: right;
     }
     
+    /* محاذاة العناوين والنصوص إلى اليمين */
     h1, h2, h3, p, label, .stMarkdown {
         text-align: right;
     }
     
+    /* محاذاة صندوق الاختيار الرئيسي إلى اليمين */
     .stSelectbox div[data-baseweb="select"] {
         text-align: right;
+        direction: rtl;
+    }
+    
+    /* محاذاة القائمة المنسدلة والخيارات التي تظهر عند البحث إلى اليمين */
+    div[data-baseweb="popover"], div[role="listbox"], ul[role="listbox"] {
+        direction: rtl !important;
+        text-align: right !important;
+    }
+    
+    div[role="option"] {
+        text-align: right !important;
+        direction: rtl !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -46,7 +61,6 @@ if df is not None:
     
     st.markdown("---")
     
-    # يظهر النتيجة فقط إذا اختار المستخدم محلاً، وإلا فلا يظهر أي شيء مزعج بالأسفل
     if selected_shop and selected_shop != "اختر أو ابحث عن المحل...":
         result = df[df['shop_name'].str.lower() == selected_shop.lower()]
         
