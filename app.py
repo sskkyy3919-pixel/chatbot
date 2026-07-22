@@ -20,26 +20,27 @@ df = load_data()
 st.title("🏢 دليل المول")
 
 if df is not None:
-    # خانة البحث الفوري
-    search_query = st.text_input("🔍 ابحث عن اسم المحل:", placeholder="اكتب أول حروف من المحل مثل: هوم...")
+    # استخراج قائمة بجميع أسماء المحلات لتشغيل البحث التفاعلي
+    shop_list = df['shop_name'].dropna().str.title().unique().tolist()
+    
+    # إضافة خيار فارغ في البداية
+    shop_list.insert(0, "اختر أو ابحث عن المحل...")
+    
+    # قائمة منسدلة تفاعلية تكتبين فيها ويصفي لك النتائج فوراً (شبيهة بيوتيوب وجوجل)
+    selected_shop = st.selectbox("🔍 ابحث عن اسم المحل لمعرفة موقعه:", shop_list)
     
     st.markdown("---")
     
-    if search_query:
-        query_clean = search_query.strip().lower()
-        result_df = df[df['shop_name'].str.contains(query_clean, na=False)]
+    if selected_shop and selected_shop != "اختر أو ابحث عن المحل...":
+        # البحث عن المحل المحدد في الإكسل
+        result = df[df['shop_name'].str.lower() == selected_shop.lower()]
         
-        if not result_df.empty:
-            # تم تصحيح السطر هنا بإضافة علامات التنصيص
-            st.success(f"تم العثور على {len(result_df)} نتيجة:")
-            
-            for _, row in result_df.iterrows():
-                shop = str(row['shop_name']).title()
-                loc = str(row['location']).strip()
-                st.markdown(f"📌 **{shop}** — موقعها: **{loc}**")
+        if not result.empty:
+            loc = result.iloc[0]['location'].strip()
+            st.success(f"📌 **{selected_shop}** يقع في: **{loc}**")
         else:
-            st.warning("🔍 لم يتم العثور على محلات تطابق بحثك.")
+            st.warning("🔍 لم يتم العثور على موقع هذا المحل.")
     else:
-        st.info("💡 اكتب أي حرف أو اسم محل في الأعلى ليظهر لك الموقع فوراً.")
+        st.info("💡 اضغط على القائمة في الأعلى وابحث أو اكتب اسم المحل ليظهر لك موقعه فوراً.")
 else:
     st.error("⚠️ ملف البيانات غير موجود تأكد من رفع ملف 'chat_shops.xlsx'.")
